@@ -1,0 +1,18 @@
+version: '3'
+services:
+  tools-api-server:
+    build:
+      context: .
+    image: tools-api-server
+    container_name: tools-api-server
+    environment:
+      - TZ=Asia/Shanghai
+    expose:
+      - '5010-5010'
+    ports:
+      - '5010-5010:5010-5010'
+    networks:
+      - tools-api-server
+networks:
+  tools-api-server:
+    driver: bridge
