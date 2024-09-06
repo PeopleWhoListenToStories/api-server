@@ -1,5 +1,5 @@
 import { BadRequestException, ClassSerializerInterceptor, Controller, Get, HttpCode, HttpStatus, Inject, Param, Query, Redirect, Res, UseGuards, UseInterceptors } from '@nestjs/common'
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger'
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { Response } from 'express'
 import { CreateUrlDto } from '~/dtos/create-url.dto'
 import { ShortUrlService } from '~/services/short-url.service'
@@ -21,7 +21,7 @@ export class ShortUrlController {
   @ApiOperation({ summary: '通过url生成短链code' })
   @ApiResponse({ status: 200, description: '通过url生成短链code' })
   @ApiQuery({ type: CreateUrlDto, name: 'url', description: '长链url地址' })
-  @Get('/')
+  @Get('/short-url')
   // @UseGuards(JwtAuthGuard)
   @UseInterceptors(ClassSerializerInterceptor)
   @HttpCode(HttpStatus.OK)
@@ -37,6 +37,7 @@ export class ShortUrlController {
   @ApiOperation({ summary: '通过code获取重定向到长链url地址' })
   @ApiResponse({ status: 200, description: '通过code获取重定向到长链url地址' })
   @Get('/:code')
+  @ApiParam({ name: 'code', description: '短链code' })
   // @Redirect('https://docs.nestjs.com', 302)
   // @UseGuards(JwtAuthGuard)
   @UseInterceptors(ClassSerializerInterceptor)

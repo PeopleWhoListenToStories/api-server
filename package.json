@@ -1,6 +1,6 @@
 {
   "name": "api-server",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "",
   "author": "",
   "private": true,
@@ -35,6 +35,7 @@
     "cookie-parser": "^1.4.6",
     "cos-nodejs-sdk-v5": "^2.14.6",
     "date-fns": "^3.6.0",
+    "deepmerge": "^4.3.1",
     "express": "^4.19.2",
     "express-rate-limit": "^7.4.0",
     "fs-extra": "^11.2.0",
@@ -55,6 +56,7 @@
     "@nestjs/common": "^8.0.0",
     "@nestjs/config": "^3.2.3",
     "@nestjs/core": "^8.0.0",
+    "@nestjs/jwt": "^10.2.0",
     "@nestjs/platform-express": "^8.0.0",
     "@nestjs/schematics": "^8.0.0",
     "@nestjs/swagger": "^7.4.0",
