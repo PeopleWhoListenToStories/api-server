@@ -1,4 +1,9 @@
 /**
+ * 文件上传 文件大小
+ */
+export const FileSize = 50 * 1024 * 1024
+
+/**
  * 用户状态枚举
  */
 export enum UserStatus {

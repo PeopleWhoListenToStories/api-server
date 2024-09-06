@@ -26,6 +26,7 @@ export class ShortUrlController {
   @UseInterceptors(ClassSerializerInterceptor)
   @HttpCode(HttpStatus.OK)
   async generateShortUrl(@Query('url') longUrl: string) {
+    console.log(`%c 🌯 🚀 : ShortUrlController -> generateShortUrl -> longUrl `, `font-size:14px;background-color:#5fd07c;color:white;`, longUrl);
     return this.shortUrlService.generate(longUrl)
   }
 

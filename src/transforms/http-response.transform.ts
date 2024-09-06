@@ -24,8 +24,8 @@ export class HttpResponseTransformInterceptor<T> implements NestInterceptor<T, R
       map((data) => {
         const ctx = context.switchToHttp();
         const response = ctx.getResponse();
-        const statusCode = response.statusCode;
-        infoLogger.info(`[${response.req.method}] [${response.req.url}] [${statusCode}] [${response.req.rawHeaders}] ${data}`)
+        const statusCode = response.statusCode; 
+        infoLogger.info(`HTTP [${statusCode}] [${response.req.method}] [${response.req.url}] [${response.req.rawHeaders}] ${JSON.stringify(data)}`)
         return wrapResponse({ data, statusCode });
       })
     );

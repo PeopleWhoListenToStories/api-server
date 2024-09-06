@@ -6,7 +6,7 @@ export class HttpResponseExceptionFilter implements ExceptionFilter {
   catch(exception: HttpException, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse();
-    // const request = ctx.getRequest();
+    const request = ctx.getRequest();
     // const url = request.originalUrl;
     const status =
       exception instanceof HttpException
@@ -14,11 +14,13 @@ export class HttpResponseExceptionFilter implements ExceptionFilter {
         : HttpStatus.INTERNAL_SERVER_ERROR;
     const errorResponse = {
       code: status,
-      message: exception.message,
+      message: exception instanceof HttpException ? exception.message : 'Internal server error',
       success: false,
       data: null,
     };
-    errorLogger.info(`[${response.req.method}] [${response.req.url}] [${status}] [${response.req.rawHeaders}] ${errorResponse}`);
+    errorLogger.info(`HTTP ${status} - ${request.method} ${request.url}`,
+    JSON.stringify(errorResponse),
+    exception instanceof HttpException ? exception.stack : '');
     response.status(status);
     response.header('Content-Type', 'application/json; charset=utf-8');
     response.send(errorResponse);

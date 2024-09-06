@@ -56,6 +56,17 @@ export class LocalOssClient extends BaseOssClient {
   }
 
   /**
+   * 文件删除
+   */
+  async deleteFile(fileKey) {
+    const { absolute } = this.getStoreDir(fileKey);
+    const absoluteFilepath = path.join(absolute);
+    if (fs.existsSync(absoluteFilepath)) {
+      fs.remove(absoluteFilepath);
+    }
+  }
+
+  /**
    * 小文件上传
    * @param file
    * @param query
@@ -67,6 +78,7 @@ export class LocalOssClient extends BaseOssClient {
   ): Promise<string> {
     const { filename, md5 } = query;
     const { absolute, relative } = this.getStoreDir(md5);
+
     const absoluteFilepath = path.join(absolute, filename);
     const relativeFilePath = path.join(relative, filename);
 

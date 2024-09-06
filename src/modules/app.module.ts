@@ -19,10 +19,14 @@ import { ShortUrlModule } from '~/modules/short-url.module'
 import { ShortLongMapEntity } from '~/entities/short-long-map.entity'
 import { UniqueCodeModule } from '~/modules/unique-code.module';
 import { UniqueCodeEntity } from '~/entities/unique-code.entity'
+import { FileModule } from '~/modules/file.module';
+import { FileEntity } from '~/entities/file.entity'
+import { SettingModule } from '~/modules/setting.module';
+import { SettingEntity } from '~/entities/setting.entity';
 
-const ENTITIES = [ShortLongMapEntity, UniqueCodeEntity];
+const ENTITIES = [ShortLongMapEntity, UniqueCodeEntity, FileEntity, SettingEntity];
 
-const MODULES = [ShortUrlModule, UniqueCodeModule];
+const MODULES = [ShortUrlModule, UniqueCodeModule, FileModule, SettingModule];
 
 @Module({
   imports: [
