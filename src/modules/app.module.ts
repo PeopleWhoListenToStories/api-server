@@ -23,10 +23,12 @@ import { FileModule } from '~/modules/file.module';
 import { FileEntity } from '~/entities/file.entity'
 import { SettingModule } from '~/modules/setting.module';
 import { SettingEntity } from '~/entities/setting.entity';
+import { ImageModule } from '~/modules/image.module';
+import { ImageEntity } from '~/entities/image.entity';
 
-const ENTITIES = [ShortLongMapEntity, UniqueCodeEntity, FileEntity, SettingEntity];
+const ENTITIES = [ShortLongMapEntity, UniqueCodeEntity, FileEntity, SettingEntity, ImageEntity];
 
-const MODULES = [ShortUrlModule, UniqueCodeModule, FileModule, SettingModule];
+const MODULES = [ShortUrlModule, UniqueCodeModule, FileModule, SettingModule, ImageModule];
 
 @Module({
   imports: [

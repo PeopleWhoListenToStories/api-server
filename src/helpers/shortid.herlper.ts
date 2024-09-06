@@ -42,3 +42,16 @@ const nanoid = (size = 21) => {
 export const generateRandomId = (len = 12) => {
   return nanoid(len);
 };
+
+
+/**
+ * 生成一个随机下标
+ * @param max index 最大值
+ * @returns 
+ */
+export const generateRandomIndex = (max) =>{
+  if (max <= 0) {
+    throw new Error('The maximum value must be greater than 0.');
+  }
+  return Math.floor(Math.random() * max);
+}
