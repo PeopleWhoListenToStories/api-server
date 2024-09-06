@@ -12,7 +12,7 @@ export class ShortLongMapEntity {
   shortUrl: string
 
   @ApiProperty()
-  @Column({ length: 200, comment: '原始 url' })
+  @Column({ length: 1000, comment: '原始 url' })
   longUrl: string
 
   @ApiProperty()
