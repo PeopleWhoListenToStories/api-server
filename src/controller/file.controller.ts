@@ -1,5 +1,5 @@
 import { Body, ClassSerializerInterceptor, Controller, Delete, Get, HttpCode, HttpException, HttpStatus, Inject, Param, Post, Query, Res, UploadedFile, UseInterceptors } from '@nestjs/common'
-import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger'
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { Response } from 'express'
 import { FileService } from '~/services/file.service'
@@ -7,6 +7,7 @@ import { FileSize } from '~/constant'
 import { CreateUploadFileDto } from '~/dtos/create-upload-file-dto'
 import { QueryFileDto } from '~/dtos/query-file-dto'
 import { CreateCompressionFileDto } from '~/dtos/create-compression-file-dto'
+import { CreateUploadThunkDto } from '~/dtos/create-upload-chunk-dto'
 // import { JwtAuthGuard } from '~/guard/jwt-auth.guard';
 
 @ApiTags('File 模块')
@@ -113,48 +114,71 @@ export class FileController {
   /**
    * 分块初始化文件
    */
-  @Get('initChunkFile')
+  @Get('init-chunk')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '分块初始化' })
   @ApiConsumes('application/json')
-  @ApiQuery({ name: 'fileMd5', description: '文件生成的md5' })
+  @ApiQuery({ name: 'fileMd5', description: '文件内容生成的fileMd5', type: 'string', example: '704c038c5819561509cd1c53b2391f2c' })
   @ApiResponse({ status: 200, description: '分块初始化成功', type: Object, example: {} })
   @ApiResponse({ status: 403, description: '禁止访问' })
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(ClassSerializerInterceptor)
-  async initChunkFile(fileMd5: string) {
-    // return await this.fileService.initChunkFile(file)
+  async initChunkFile(
+    @Query('fileName') fileName: string,
+    @Query('fileMd5') fileMd5: string,
+    @Query('fileType') fileType?: string,
+    @Query('fileSize') fileSize?: number,
+    @Query('chunkSize') chunkSize?: number,
+    @Query('chunkTotal') chunkTotal?: number,
+  ) {
+    return await this.fileService.initChunkFile(fileName, fileMd5, fileType, fileSize, chunkSize, chunkTotal)
   }
 
   /**
    * 分块上传文件
    */
-  @Post('uploadChunkFile')
+  @Post('upload-chunk')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '分块上传文件' })
-  @ApiConsumes('application/json')
-  @ApiQuery({ name: 'fileMd5', description: '文件生成的md5' })
+  @ApiBody({ required: true, description: '文件信息', type: CreateUploadThunkDto })
+  @ApiConsumes('multipart/form-data')
   @ApiResponse({ status: 200, description: '分块上传文件成功', type: Object, example: {} })
   @ApiResponse({ status: 403, description: '禁止访问' })
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(ClassSerializerInterceptor)
-  async uploadChunkFile(fileMd5: string) {
-    // return await this.fileService.uploadChunkFile(file)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: FileSize,
+      },
+    }),
+  )
+  async uploadChunkFile(@UploadedFile() file: Express.Multer.File, @Body() fileInfo: CreateUploadThunkDto) {
+    return await this.fileService.uploadChunkFile(file, fileInfo)
   }
 
   /**
    * 分块上传完成合并文件
    */
-  @Post('uploadChunkMergeFile')
+  @Post('upload-chunk-merge')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '分块上传完成合并文件' })
   @ApiConsumes('application/json')
-  @ApiQuery({ name: 'fileMd5', description: '文件生成的md5' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        fileName: { type: 'string', description: '文件名称', example: 'example.txt' },
+        fileMd5: { type: 'string', description: '文件md5的值', example: '704c038c5819561509cd1c53b2391f2c' },
+      },
+      required: ['fileName', 'fileMd5'],
+    },
+  })
   @ApiResponse({ status: 200, description: '分块上传完成合并文件成功', type: Object, example: {} })
   @ApiResponse({ status: 403, description: '禁止访问' })
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(ClassSerializerInterceptor)
-  async uploadChunkMergeFile(fileMd5: string) {
-    // return await this.fileService.uploadChunkMergeFile(file)
+  async uploadChunkMergeFile(@Body('fileName') fileName: string, @Body('fileMd5') fileMd5: string) {
+    return await this.fileService.uploadChunkMergeFile(fileName, fileMd5)
   }
 }

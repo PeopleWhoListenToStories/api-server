@@ -9,6 +9,8 @@ import { dateFormat } from '~/helpers/date.helper'
 import { generateRandomId } from '~/helpers/shortid.herlper'
 import { SettingService } from '~/services/setting.service'
 import { FileEntity } from '~/entities/file.entity'
+import { FileThunkEntity } from '~/entities/chunk-file.entity'
+import { CreateUploadThunkDto } from '~/dtos/create-upload-chunk-dto'
 
 import { getConfig } from '~/config'
 const config = getConfig()
@@ -24,6 +26,10 @@ export class FileService {
 
     @InjectRepository(FileEntity)
     private readonly fileRepository: Repository<FileEntity>,
+
+    @InjectRepository(FileThunkEntity)
+    private readonly fileThunkRepository: Repository<FileThunkEntity>,
+
     private readonly settingService: SettingService,
     private readonly configService: ConfigService,
   ) {
@@ -115,5 +121,121 @@ export class FileService {
    */
   private async resizeImage(buffer: Buffer, quality: number): Promise<Buffer> {
     return sharp(buffer).jpeg({ quality }).toBuffer()
+  }
+
+  /**
+   * 初始化分片文件
+   * @param fileName 文件名
+   * @param fileMd5 文件MD5值
+   * @returns Promise<any> 初始化结果
+   * @throws HttpException 如果文件已存在，则抛出异常，提示勿重复上传
+   */
+  async initChunkFile(fileName: string, fileMd5: string, fileType: string, fileSize: number, chunkSize: number, chunkTotal?: number): Promise<any> {
+    // Check if chunk file already exists
+    const chunkFile = await this.fileThunkRepository.findOne({
+      where: { fileMd5, flag: false },
+      select: ['fileMd5', 'fileName', 'chunkIndex', 'chunkTotal'],
+    })
+
+    if (chunkFile) {
+      return {
+        fileMd5: chunkFile.fileMd5,
+        fileName: chunkFile.fileName,
+        chunkIndex: chunkFile.chunkIndex,
+        chunkTotal: chunkFile.chunkTotal,
+      }
+    }
+
+    // Initialize chunk with external service
+    try {
+      await this.ossClient.initChunk({ filename: fileName, md5: fileMd5 })
+
+      // Create and save new FileThunkEntity
+      const fileThunkInfo = this.createFileThunkEntity(fileMd5, fileName, fileType, fileSize, chunkSize, chunkTotal)
+
+      return await this.fileThunkRepository.save(fileThunkInfo)
+    } catch (err) {
+      throw new HttpException('Error initializing chunk file', HttpStatus.INTERNAL_SERVER_ERROR)
+    }
+  }
+
+  private createFileThunkEntity(fileMd5: string, fileName: string, fileType: string, fileSize: number, chunkSize: number, chunkTotal?: number): FileThunkEntity {
+    const fileThunkInfo = new FileThunkEntity()
+    fileThunkInfo.fileMd5 = fileMd5 || ''
+    fileThunkInfo.fileName = fileName || ''
+    fileThunkInfo.fileType = fileType || ''
+    fileThunkInfo.fileSize = fileSize || 0
+    fileThunkInfo.chunkSize = chunkSize || 0
+    fileThunkInfo.fileUrl = '' // Initialize URL as empty
+    fileThunkInfo.chunkIndex = 0 // Initial chunk index
+    fileThunkInfo.chunkTotal = chunkTotal || 0 // Default to 0 if chunkTotal is not provided
+    fileThunkInfo.flag = false // Initially not flagged
+    fileThunkInfo.createTime = new Date() // Set creation time
+    return fileThunkInfo
+  }
+
+  /**
+   * 上传分片文件
+   * @param file 上传的文件对象
+   * @param fileInfo 创建上传分片所需的信息
+   * @returns Promise<void> 无返回值
+   */
+  async uploadChunkFile(file: Express.Multer.File, fileInfo: CreateUploadThunkDto): Promise<any> {
+    try {
+      // Upload chunk to OSS
+      await this.ossClient.uploadChunk(file, { md5: fileInfo.fileMd5, chunkIndex: fileInfo.chunkIndex })
+
+      // Update the database with the new chunk index
+      await this.fileThunkRepository.update({ fileMd5: fileInfo.fileMd5, flag: false }, { chunkIndex: Number(fileInfo.chunkIndex) })
+
+      return {
+        fileMd5: fileInfo.fileMd5,
+        chunkIndex: Number(fileInfo.chunkIndex),
+      }
+    } catch (err) {
+      // Handle errors
+      throw new HttpException('Failed to upload chunk file', HttpStatus.INTERNAL_SERVER_ERROR)
+    }
+  }
+
+  /**
+   * 上传分片合并文件
+   * @param fileName 文件名
+   * @param fileMd5 文件MD5值
+   * @returns 无返回值
+   */
+  async uploadChunkMergeFile(fileName: string, fileMd5: string) {
+    try {
+      // Merge chunks and get file URL
+      const fileUrl = await this.ossClient.mergeChunk({ md5: fileMd5, filename: fileName })
+
+      // Update file status to complete
+      await this.fileThunkRepository.update({ fileMd5, flag: false }, { fileUrl, flag: true })
+
+      // Retrieve the updated file info
+      const fileRes = await this.fileThunkRepository.findOne({
+        where: { fileMd5, flag: true },
+      })
+
+      if (!fileRes) {
+        throw new HttpException('文件信息未找到', HttpStatus.NOT_FOUND)
+      }
+
+      // Create new FileEntity instance
+      const newFile = new FileEntity()
+      newFile.fileKey = generateRandomId(12)
+      newFile.originalName = fileRes.fileName
+      newFile.fileName = fileRes.fileName
+      newFile.fileUrl = fileRes.fileUrl
+      newFile.fileType = fileRes.fileType
+      newFile.fileSize = fileRes.fileSize
+      newFile.flag = false
+
+      // Save the new file entity
+      return await this.entityManager.save(FileEntity, newFile)
+    } catch (err) {
+      // Throw HTTP exception with the error message
+      throw new HttpException(err.message || 'An unexpected error occurred', HttpStatus.INTERNAL_SERVER_ERROR)
+    }
   }
 }

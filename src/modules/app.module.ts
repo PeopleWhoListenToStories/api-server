@@ -25,8 +25,9 @@ import { SettingModule } from '~/modules/setting.module';
 import { SettingEntity } from '~/entities/setting.entity';
 import { ImageModule } from '~/modules/image.module';
 import { ImageEntity } from '~/entities/image.entity';
+import { FileThunkEntity } from '~/entities/chunk-file.entity'
 
-const ENTITIES = [ShortLongMapEntity, UniqueCodeEntity, FileEntity, SettingEntity, ImageEntity];
+const ENTITIES = [ShortLongMapEntity, UniqueCodeEntity, FileEntity, SettingEntity, ImageEntity, FileThunkEntity];
 
 const MODULES = [ShortUrlModule, UniqueCodeModule, FileModule, SettingModule, ImageModule];
 

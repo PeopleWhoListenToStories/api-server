@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>File Chunk Upload with MD5</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/spark-md5/3.0.2/spark-md5.min.js"></script>
+
+</head>
+
+<body>
+  <h1>File Chunk Upload with MD5</h1>
+
+
+  <input type="file" id="fileInput" />
+  <button onclick="startProcess()">Start Upload Process</button>
+
+  <div id="progress"></div>
+  <script>
+    const chunkSize = 1 * 1024 * 1024; // 每个分片大小 1MB
+    let fileMD5 = ''; // 文件的MD5值
+
+    // 第一步：计算文件的MD5
+    function calculateMD5(file) {
+      return new Promise((resolve, reject) => {
+        const chunkSize = 2 * 1024 * 1024; // 2MB 大小的分片来计算MD5
+        const spark = new SparkMD5.ArrayBuffer();
+        const fileReader = new FileReader();
+        let currentChunk = 0;
+        const chunks = Math.ceil(file.size / chunkSize);
+
+        fileReader.onload = function (e) {
+          spark.append(e.target.result); // 追加分片内容
+          currentChunk++;
+
+          if (currentChunk < chunks) {
+            loadNext();
+          } else {
+            const md5 = spark.end(); // 计算最终MD5
+            resolve(md5);
+          }
+        };
+
+        fileReader.onerror = function () {
+          reject('File read error');
+        };
+
+        function loadNext() {
+          const start = currentChunk * chunkSize;
+          const end = start + chunkSize >= file.size ? file.size : start + chunkSize;
+          fileReader.readAsArrayBuffer(file.slice(start, end));
+        }
+
+        loadNext();
+      });
+    }
+
+    function generateIdentifier({ chunkSize, fileName, fileMd5, fileSize, fileType, chunkTotal }) {
+      return fetch(`http://127.0.0.1:5010/file/init-chunk?chunkSize=${chunkSize}&fileName=${fileName}&fileMd5=${fileMd5}&fileSize=${fileSize}&fileType=${fileType}&chunkTotal=${chunkTotal}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }).then((response) => {
+        console.log(`%c ⚙️ 🚀 : generateIdentifier -> response `, `font-size:14px;background-color:#f2d3db;color:black;`, JSON.stringify(response));
+        if (!response.ok) {
+          // throw new Error('Failed to merge file chunks');
+        }
+      });
+    }
+
+    // 第二步：上传分片
+    async function uploadChunk(formData) {
+      return fetch('http://127.0.0.1:5010/file/upload-chunk', {
+        method: 'POST',
+        body: formData,
+      }).then((response) => {
+        if (!response.ok) {
+          // throw new Error('Failed to upload chunk');
+        }
+      });
+    }
+
+    // 第三步：通知服务器合并分片
+    async function mergeChunks(identifier, totalChunks, fileName) {
+      const data = {
+        fileName,
+        fileMd5: identifier,
+      };
+
+      return fetch('http://127.0.0.1:5010/file/upload-chunk-merge', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      }).then((response) => {
+        console.log(`%c 💥 🚀 : mergeChunks -> response `, `font-size:14px;background-color:#580784;color:white;`, JSON.stringify(response));
+        if (!response.ok) {
+          // throw new Error('Failed to merge file chunks');
+        }
+      });
+    }
+
+    // 开始上传流程
+    async function startProcess() {
+      const fileInput = document.getElementById('fileInput');
+      const file = fileInput.files[0];
+      const progressDiv = document.getElementById('progress');
+
+      if (!file) {
+        alert('Please select a file');
+        return;
+      }
+
+      // 第一步：计算文件MD5
+      progressDiv.innerText = 'Calculating MD5...';
+      try {
+        fileMD5 = await calculateMD5(file);
+        console.log({ fileMd5: fileMD5, fileName: file.name })
+        progressDiv.innerText = `File MD5: ${fileMD5}`;
+      } catch (err) {
+        // progressDiv.innerText = 'Failed to calculate MD5';
+        return;
+      }
+
+      // 第二步：上传分片
+      const totalChunks = Math.ceil(file.size / chunkSize);
+      progressDiv.innerText = `Total Chunks: ${totalChunks}`;
+      await generateIdentifier({ chunkSize: chunkSize ,fileMd5: fileMD5, fileName: file.name, fileSize: file.size, fileType: file.type, chunkTotal: totalChunks })
+      for (let i = 0; i < totalChunks; i++) {
+        const chunk = file.slice(i * chunkSize, (i + 1) * chunkSize);
+        const formData = new FormData();
+        formData.append('file', chunk);
+        formData.append('fileName', file.name);
+        formData.append('chunkSize', chunkSize);
+        formData.append('chunkIndex', i + 1);
+        formData.append('chunkTotal', totalChunks);
+        formData.append('fileSize', file.size);
+        formData.append('fileMd5', fileMD5); // 使用 MD5 作为唯一标识符
+        for (let [key, value] of formData.entries()) {
+        if (value instanceof File) {
+            console.log(`${key}: ${value.name} (${value.size} bytes)`); // For files
+        } else {
+            console.log(`${key}: ${value}`); // For other form values
+        }
+    }
+        try {
+          await uploadChunk(formData);
+          progressDiv.innerText = `Uploaded chunk ${i + 1} of ${totalChunks}`;
+        } catch (error) {
+          console.log(`%c ☝️ 🚀 : startProcess -> error `, `font-size:14px;background-color:#d80c81;color:white;`, error);
+          // progressDiv.innerText = `Error uploading chunk: ${i + 1}`;
+          return;
+        }
+      }
+
+      // 第三步：合并文件分片
+      try {
+        await mergeChunks(fileMD5, totalChunks, file.name);
+        progressDiv.innerText = 'File upload and merge completed!';
+      } catch (err) {
+        // progressDiv.innerText = 'Failed to merge file chunks';
+      }
+    }
+  </script>
+</body>
+
+</html>
