@@ -1,8 +1,12 @@
-import { Controller, HttpCode, HttpStatus, Get, Query, UseInterceptors, ClassSerializerInterceptor, Res } from '@nestjs/common'
-import { ApiTags, ApiResponse, ApiOperation, ApiConsumes, ApiQuery } from '@nestjs/swagger'
+import { Controller, HttpCode, HttpStatus, Get, Query, UseInterceptors, ClassSerializerInterceptor, Res, Post, UploadedFile, Body } from '@nestjs/common'
+import { ApiTags, ApiResponse, ApiOperation, ApiConsumes, ApiQuery, ApiBody } from '@nestjs/swagger'
 import { Response } from 'express'
 import { ImageService } from '~/services/image.service'
 import { ImageEntity } from '~/entities/image.entity'
+import { FileInterceptor } from '@nestjs/platform-express'
+import { FileSize } from '~/constant'
+import { CreateUploadFileDto } from '~/dtos/create-upload-file-dto'
+import { CreateImageUploadFileDto } from '~/dtos/create-image-file-dto'
 
 @ApiTags('Image')
 @Controller('image')
@@ -113,5 +117,46 @@ export class ImageController {
     // 设置响应头
     res.type('image/svg+xml')
     res.send(await this.imageService.getFunEmojiSvg({ clip, rotate, flip, seed, scale, radius, size, translateY, backgroundColor, backgroundType, backgroundRotation, eyes, mouth }))
+  }
+
+  @Post('crop')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '上传文件' })
+  @ApiConsumes('multipart/form-data')
+  @ApiResponse({ status: 200, description: '文件上传成功', type: File })
+  @ApiResponse({ status: 403, description: '禁止访问' })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: FileSize,
+      },
+    }),
+  )
+  @UseInterceptors(ClassSerializerInterceptor)
+  async cropImage(@UploadedFile() file, @Body() fileInfo: CreateImageUploadFileDto, @Res() res: Response) {
+    const { width, height } = fileInfo || {}
+
+    const croppedImage = await this.imageService.cropImage(file, +width, +height);
+    res.set('Content-Type', 'image/jpeg');
+    res.send(croppedImage);
+  }
+
+  @Get('crop-url')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '裁剪url传入的文件' })
+  @ApiConsumes('multipart/form-data')
+  @ApiResponse({ status: 200, description: '裁剪成功', type: File })
+  @ApiResponse({ status: 403, description: '禁止访问' })
+  @UseInterceptors(ClassSerializerInterceptor)
+  async cropImageFromUrl(
+    @Res() res: Response,
+    @Query('imageUrl') imageUrl?: string,
+    @Query('width') width?: number,
+    @Query('height') height?: number,
+    @Query('quality') quality?: number,
+  ) {
+    const croppedImage = await this.imageService.cropImageFromUrl(imageUrl, Number(width || 100), Number(height || 100), Number(quality || 100));
+    res.set('Content-Type', 'image/jpeg');
+    res.send(croppedImage);
   }
 }

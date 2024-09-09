@@ -6,7 +6,7 @@ import { FileService } from '~/services/file.service'
 import { FileSize } from '~/constant'
 import { CreateUploadFileDto } from '~/dtos/create-upload-file-dto'
 import { QueryFileDto } from '~/dtos/query-file-dto'
-import { CreateCompressionFileDto } from '~/dtos/create-compression-file-fto'
+import { CreateCompressionFileDto } from '~/dtos/create-compression-file-dto'
 // import { JwtAuthGuard } from '~/guard/jwt-auth.guard';
 
 @ApiTags('File 模块')

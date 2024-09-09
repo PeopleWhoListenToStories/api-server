@@ -1,16 +1,22 @@
 import { BadRequestException, HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common'
 import { InjectEntityManager, InjectRepository } from '@nestjs/typeorm'
+import { HttpService } from '@nestjs/axios'
 import { EntityManager } from 'typeorm'
+import * as sharp from 'sharp'
 import { ImageEntity } from '~/entities/image.entity'
 import { createAvatar } from '~/helpers/dicebear/core'
 import * as funEmoji from '~/helpers/dicebear/fun-emoji'
 import { generateRandomIndex } from '~/helpers/shortid.herlper'
+import { firstValueFrom } from 'rxjs'
+import { getRandomBackground } from '~/helpers/color.helper'
 
 @Injectable()
 export class ImageService {
   constructor(
     @InjectEntityManager()
     private entityManager: EntityManager,
+
+    private readonly httpService: HttpService,
 
     @InjectRepository(ImageEntity)
     private readonly imageService?: ImageService,
@@ -41,5 +47,47 @@ export class ImageService {
       mouth: [mouth],
       ...additionalParams,
     }).toString()
+  }
+
+  // 裁剪本地上传的图片
+  async cropImage(file: Express.Multer.File, width: number, height: number): Promise<Buffer> {
+    if (!file) {
+      throw new HttpException('No file uploaded', HttpStatus.BAD_REQUEST)
+    }
+
+    return sharp(file.buffer).resize(width, height).toBuffer()
+  }
+
+  // 裁剪远程图片
+  async cropImageFromUrl(imageUrl: string, width: number, height: number, quality: number): Promise<Buffer> {
+    if (!imageUrl) {
+      return sharp({
+        create: {
+          width,
+          height,
+          channels: 4,
+          background: getRandomBackground(),
+        },
+      })
+        .png()
+        .resize({ width, height })
+        .toBuffer()
+    }
+    const response = await firstValueFrom(this.httpService.get(imageUrl, { responseType: 'arraybuffer' }))
+
+    // 检查响应是否为空，或者 Content-Type 是否不是图片
+    const contentType = response.headers['content-type']
+    if (!response || !response.data || !contentType.startsWith('image')) {
+      throw new HttpException('Invalid image URL or unsupported content type', HttpStatus.BAD_REQUEST)
+    }
+    const imageBuffer = Buffer.from(response.data) // 从 arraybuffer 转为 Buffer
+
+    return sharp(imageBuffer)
+      .resize({ width, height, fit: sharp.fit.cover, position: sharp.strategy.entropy })
+      .jpeg({
+        quality,
+        chromaSubsampling: '4:4:4',
+      })
+      .toBuffer()
   }
 }
